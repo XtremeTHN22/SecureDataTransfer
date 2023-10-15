@@ -13,12 +13,14 @@ class ProjectDirs:
             self.local = os.getenv("LOCALAPPDATA")
 
             self.share_dir = os.path.join(self.local, proj_dir)
+            self.cert_dir = os.path.join(self.share_dir, "certs")
             self.log_dir = os.path.join(self.share_dir, "logs")
             self.config_dir = os.path.join(self.appdata, proj_dir, "config")
 
         elif sys.platform == "linux":
             self.home = os.getenv("HOME")
             self.share_dir = os.path.join(self.home, ".local", "share", proj_dir)
+            self.cert_dir = os.path.join(self.share_dir, "certs")
             self.log_dir = os.path.join(self.share_dir, "logs")
             self.config_dir = os.path.join(self.home, ".config", proj_dir)
 

@@ -5,23 +5,23 @@ import ssl
 import os
 
 class Server(socket.socket):
-    def __init__(self, certs_dir, threaded=False):
+    def __init__(self, certs_dir, args, threaded=False):
         self.logger = logging.getLogger("Server")
         
         self.logger.info("Starting server...")
         super().__init__(socket.AF_INET, socket.SOCK_STREAM)
-        self.cert_file = os.path.join(certs_dir, "cert.crt")
+        self.cert_file = os.path.join(certs_dir, "certificate.crt")
         self.key_file = os.path.join(certs_dir, "private.key")
         
         self.logger.debug("Initializing SSL context...")
-        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(self.cert_file, self.key_file)
         
-        self.logger.debug("Wrapping socket with SSL context...")
-        self = context.wrap_socket(self, server_side=True)
+        self.logger.debug("Wrapping socket with SSL...")
+        self.sock = context.wrap_socket(self, server_side=True)
         
-        self.logger.debug("Binding to localhost:8080...")
-        self.bind(("localhost", 8080))
+        self.logger.debug("Binding to %s:%d...", args.address, args.port)
+        self.sock.bind((args.address, args.port))
         
         self.running = True
         
@@ -32,29 +32,31 @@ class Server(socket.socket):
             self.logger.info("Listening for any connection...")
             self.wait_connections()
     def wait_connections(self):
-        self.listen()
-        self.logger.info("Accepting connection...")
-        client_socket, addr = self.accept()
+        self.sock.listen(1)
+        client_socket, addr = self.sock.accept()
         self.logger.info("User with address '%s' connected!", addr)
         self.handle_client(client_socket)
         
-    def close(self):
+    def exit(self):
         self.logger.info("Closing server...")
         self.running = False
         try:
-            self.close()
+            self.sock.close()
         except Exception:
             self.logger.exception("Failed to close server!")
         
     def waiter_loop(self):
         while self.running:
             self.logger.info("Listening for any connection...")
-            self.listen()
+            self.sock.listen()
             self.logger.info("Accepting connection...")
-            client_socket, addr = self.accept()
+            client_socket, addr = self.sock.accept()
             self.logger.info("User with address '%s' connected!", addr)
             self.logger.info("Creating thread for client...")    
             threading.Thread(target=self.handle_client, args=(client_socket,)).start()
     
-    def handle_client(self, client_socket):
-        pass
+    def handle_client(self, client_socket: socket.socket):
+        data = client_socket.recv(1024)
+        
+        client_socket.close()
+        self.exit()

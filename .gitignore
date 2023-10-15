@@ -1,2 +1,3 @@
-app_dirs
+app_folders
+modules/__pycache__
 .venv

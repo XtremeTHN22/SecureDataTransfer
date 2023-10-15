@@ -1,11 +1,19 @@
 import os
+import sys
 import json
 import argparse
 import threading
 import logging
 
-from modules.directories import ProjectDirs
+from modules.exceptions import ExceptionHandler
 from modules.log import init_log, delete_logs
+from modules.directories import ProjectDirs
+from modules.arguments import Arguments
+from modules.server import Server
+from modules.client import Client
+
+exc = ExceptionHandler()
+sys.excepthook = exc.global_handler
 
 confs = {
     "arguments": {
@@ -21,21 +29,9 @@ dirs = ProjectDirs("SecureDataTransfer")
 console = init_log("SecureDataTransfer", dirs.log_dir)[1]
 logging.debug("Getting main logger...")
 
-logger = logging.getLogger("SDT")
-logger.info("Parsing arguments...")
+logger = logging.getLogger("Main()")
 
-parser = argparse.ArgumentParser()
-log_opts = parser.add_argument_group("Logger options")
-log_opts.add_argument("--max-logs", type=int, help="Sets maximum number of logs (Default: -1)", default=-1)
-log_opts.add_argument("--log-level", type=str, help="Sets log level (Default: INFO)", default="INFO")
-
-server_opts = parser.add_argument_group("Server options")
-client_opts = parser.add_argument_group("Client options")
-
-args = parser.parse_args()
-
-if args.log_level is not None:
-    console.setLevel(args.log_level.upper())
+args_obj = Arguments(console)
 
 logger.info("Configuration values have higher priority than arguments")
 logger.info("You can disable this in the config file by setting the config 'args_priority' to 'console'")
@@ -59,18 +55,17 @@ else:
     with open(conf_path) as f:
         confs = json.load(f)
 
-args = parser.parse_args()
-if confs["arguments"]["args_priority"] == "config":
-    for key, value in confs["arguments"].items():
-        if key in args.__dict__:
-            logger.debug(f"Setting {key} to {value}")
-            setattr(args, key, value)
 
-logger.info("Applying arguments/configuration...")
+args_obj.parse_args()
+if confs["arguments"]["priority"] == "config":
+    args_obj.patch_args_from_config(confs)
 
-# Applies configs
-logger.debug("Changing log level to %s", args.log_level)
-console.setLevel(args.log_level.upper())
-logger.debug("Checking if log have reached the file limit...")
-delete_logs(args.max_logs, dirs.log_dir)
+args_obj.apply_changes()
 
+args = args_obj.get_args()
+
+if args.server:
+    server = Server(dirs.cert_dir, args)
+
+if args.client:
+    client = Client(dirs.cert_dir, args)

@@ -24,8 +24,8 @@ def init_log(name, log_dir="logs") -> str | None:
                 datefmt='%H:%M',
                 level=logging.DEBUG)
     console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('[%(name)s][%(levelname)s] %(message)s')
+    console.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('[ %(name)s ][%(levelname)s] %(message)s')
     console.setFormatter(formatter)
     console.setFormatter
     logging.getLogger('').addHandler(console)
