@@ -113,10 +113,12 @@ class Server(socket.socket):
         Returns:
             None
         """
-        request = json.loads(client_socket.recv(1024))
-        if request["request"] == "STRING":
-            print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
-            return
+        
+        while True:
+            request = json.loads(client_socket.recv(1024))
+            if request["request"] == "STRING":
+                print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
+                return
         
 
         client_socket.close()
