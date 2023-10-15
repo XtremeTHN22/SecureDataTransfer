@@ -1,10 +1,14 @@
 import logging
 import socket
+import json
 import ssl
 import os
 
 class Client():
-    HEADER_TEMPLATE="{};{};{}"
+    HEADER_TEMPLATE = {
+        "request":None,
+        "data":None
+    }
     def __init__(self, certs_dir, args):
         self.logger = logging.getLogger("Client")
 
@@ -25,10 +29,13 @@ class Client():
         
         self.logger.info("Sending data...")
         self.sendMessage("Hello from client!")    
-    def formatCustomHeader(self, request_type, data_lenght):
+    def formatCustomHeader(self, request_type, data):
         self.logger.debug("Creating header...")
-        header = self.HEADER_TEMPLATE.format(request_type, data_lenght).encode()
+        header = self.HEADER_TEMPLATE.copy()
+        header["request"] = request_type
+        header["data"] = data
 
+        self.logger.debug("Sending header...")
         self.sock.sendall(header)
     
     def sendFile(self, file_path):
@@ -41,9 +48,7 @@ class Client():
                 self.sock.sendall(data)
     
     def sendMessage(self, message):
-        self.formatCustomHeader("STRING", len(message))
-        self.sock.sendall(message)
-
+        self.formatCustomHeader("STRING", message)
     def exit(self):
         self.logger.info("Closing client...")
         self.sock.close()

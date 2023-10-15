@@ -1,11 +1,22 @@
 import threading
+import pystyle
 import logging
 import socket
+import json
 import ssl
 import os
 
 class Server(socket.socket):
-    def __init__(self, certs_dir, args, threaded=False):
+    def __init__(self, certs_dir, args, block=True):
+        """
+        Initializes the server with the given `certs_dir`, `args`, and `block` parameters.
+        
+        Parameters:
+            certs_dir (str): The directory containing the SSL certificates.
+            args (object): The arguments object containing the server address and port.
+            block (bool, optional): Whether the server should run in a blocking manner. 
+                                    Defaults to True.
+        """
         self.logger = logging.getLogger("Server")
         
         self.logger.info("Starting server...")
@@ -25,13 +36,22 @@ class Server(socket.socket):
         
         self.running = True
         
-        if threaded is True:
+        if block is False:
             self.logger.info("Starting main loop thread...")
             threading.Thread(target=self.waiter_loop).start()
         else:
             self.logger.info("Listening for any connection...")
             self.wait_connections()
     def wait_connections(self):
+        """
+        Waits for incoming connections and handles them.
+
+        Parameters:
+            self (object): The instance of the class.
+        
+        Returns:
+            None
+        """
         self.sock.listen(1)
         client_socket, addr = self.sock.accept()
         self.logger.info("User with address '%s' connected!", addr)
@@ -46,6 +66,15 @@ class Server(socket.socket):
             self.logger.exception("Failed to close server!")
         
     def waiter_loop(self):
+        """
+        Listen for connections and handle them in separate threads.
+
+        This function continuously listens for incoming connections while the 'running' flag is True.
+        Once a connection is established, a new thread is created to handle the client.
+        
+        Returns:
+            None
+        """
         while self.running:
             self.logger.info("Listening for any connection...")
             self.sock.listen()
@@ -53,10 +82,42 @@ class Server(socket.socket):
             client_socket, addr = self.sock.accept()
             self.logger.info("User with address '%s' connected!", addr)
             self.logger.info("Creating thread for client...")    
-            threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+            threading.Thread(target=self.handle_client_thread, args=(client_socket,)).start()
     
     def handle_client(self, client_socket: socket.socket):
-        data = client_socket.recv(1024)
+        """
+        Handle the client connection.
+
+        Args:
+            client_socket (socket.socket): The socket object representing the client connection.
+
+        Returns:
+            None
+        """
+        request = json.loads(client_socket.recv(1024))
+        if request["request"] == "STRING":
+            print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
+            return
         
+
+        client_socket.close()
+        self.exit()
+    
+    def handle_client_thread(self, client_socket: socket.socket):
+        """
+        Handle the client connection.
+
+        Args:
+            client_socket (socket.socket): The socket object representing the client connection.
+
+        Returns:
+            None
+        """
+        request = json.loads(client_socket.recv(1024))
+        if request["request"] == "STRING":
+            print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
+            return
+        
+
         client_socket.close()
         self.exit()
