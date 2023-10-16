@@ -1,8 +1,11 @@
 import logging
 import socket
 import json
+import tqdm
 import ssl
 import os
+
+from modules.requests import Requests
 
 class Client():
     HEADER_TEMPLATE = {
@@ -27,8 +30,6 @@ class Client():
         self.sock = context.wrap_socket(sock, server_hostname=args.address)
         self.sock.connect((args.address, args.port))
         
-        self.logger.info("Sending data...")
-        self.sendMessage("Hello from client!")    
     def formatCustomHeader(self, request_type, data):
         self.logger.debug("Creating header...")
         header = self.HEADER_TEMPLATE.copy()
@@ -36,10 +37,18 @@ class Client():
         header["data"] = data
 
         self.logger.debug("Sending header...")
-        self.sock.sendall(header)
+        self.sock.sendall(json.dumps(header).encode())
     
     def sendFile(self, file_path):
-        self.formatCustomHeader("FILE", os.path.getsize(file_path))
+        file_len = os.path.getsize(file_path)
+        self.formatCustomHeader("FILE", file_len)
+        if self.sock.recv(1024) == Requests.File.Server.DENIED:
+            self.logger.info("Server denied the file request!")
+            self.logger.info("Closing connection...")
+            self.sock.close()
+            return
+        
+        progress = tqdm.tqdm(total=int(file_len), unit="B", colour="#A6E3A1", unit_scale=True, unit_divisor=1024)
         with open(file_path, "rb") as file:
             while True:
                 data = file.read(1024)
@@ -47,8 +56,10 @@ class Client():
                     self.sock.sendall("END".encode())
                     break
                 self.sock.sendall(data)
+                progress.update(len(data))
+        progress.close()
         self.logger.info("Recieved: %s", self.sock.recv(1024))
-        
+        self.sock.recv(1024)
 
     
     def sendMessage(self, message):

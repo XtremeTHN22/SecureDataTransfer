@@ -12,7 +12,7 @@ class ExceptionHandler():
         self.logger = logger
         self.cleanup_func = cleanup_function
 
-    def local_handler(self, func):
+    def local_handler(self, func, exit=True):
         def decorator(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -34,7 +34,8 @@ class ExceptionHandler():
                     self.logger.info("Cannot display Exception info, changing method of display (traceback)...")
                     self.logger.exception("Exception below: ", exc_info=True)
                 self.logger.info("Report the error to the github page")
-                sys.exit(1)
+                if exit:
+                    sys.exit(1)
         return decorator
     
     def global_handler(self, exc_type, value, traceback_obj):
