@@ -3,10 +3,24 @@ import pystyle
 import logging
 import socket
 import json
+import tqdm
 import ssl
 import os
 
+class Requests:
+    class Message:    
+        STRING = "STRING"
+    class File:
+        class Client:
+            FILE = "FILE:Client:INIT"
+        class Server:
+            END="FILE:Server:END"
+
 class Server(socket.socket):
+    HEADER_TEMPLATE = {
+        "request":None,
+        "data":None
+    }
     def __init__(self, certs_dir, args, block=True):
         """
         Initializes the server with the given `certs_dir`, `args`, and `block` parameters.
@@ -83,6 +97,15 @@ class Server(socket.socket):
             self.logger.info("User with address '%s' connected!", addr)
             self.logger.info("Creating thread for client...")    
             threading.Thread(target=self.handle_client_thread, args=(client_socket,)).start()
+        
+    def formatCustomHeader(self, request_type, data):
+        self.logger.debug("Creating header...")
+        header = self.HEADER_TEMPLATE.copy()
+        header["request"] = request_type
+        header["data"] = data
+
+        self.logger.debug("Sending header...")
+        self.sock.sendall(header)
     
     def handle_client(self, client_socket: socket.socket):
         """
@@ -118,8 +141,29 @@ class Server(socket.socket):
             request = json.loads(client_socket.recv(1024))
             if request["request"] == "STRING":
                 print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
-                return
-        
+                self.logger.info("Recieved: %s", request["data"])
+                continue
+            elif request["request"] == Requests.File.Client.FILE:
+                self.logger.info("FILE request received!")
+                self.logger.info("Size: %s", request["data"])
+                self.logger.info("Creating file...")
+                path = input(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'INFO')}] File path: ")
+                self.logger.info("Path: %s", path)
 
+                # The root directory is saved into the n variable
+                if (n:=os.path.dirname(path)) != "":
+                    os.makedirs(n, exist_ok=True)
+                
+                progress = tqdm.tqdm(total=int(request["data"]), unit="B", colour="#A6E3A1", unit_scale=True, unit_divisor=1024)
+                with open(path, "wb") as file:
+                    while True:
+                        data = client_socket.recv(1024)
+                        if data == "END":
+                            break
+                        file.write(data)
+                        progress.update(len(data))
+                self.formatCustomHeader(Requests.File.Server.END, '')
+                progress.close()
+                
         client_socket.close()
         self.exit()

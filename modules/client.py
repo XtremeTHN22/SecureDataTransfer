@@ -44,8 +44,12 @@ class Client():
             while True:
                 data = file.read(1024)
                 if not data:
+                    self.sock.sendall("END".encode())
                     break
                 self.sock.sendall(data)
+        self.logger.info("Recieved: %s", self.sock.recv(1024))
+        
+
     
     def sendMessage(self, message):
         self.formatCustomHeader("STRING", message)
