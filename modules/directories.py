@@ -5,6 +5,7 @@ class ProjectDirs:
         os.makedirs(self.share_dir, exist_ok=True)
         os.makedirs(self.config_dir, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(self.cert_dir, exist_ok=True)
     def __init__(self, proj_dir):
         logger = logging.getLogger("ProjectDirs()")
         if sys.platform == "win32":

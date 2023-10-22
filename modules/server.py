@@ -1,11 +1,12 @@
 import threading
 import pystyle
-import logging
 import socket
 import json
 import tqdm
 import ssl
 import os
+
+from modules.log import SameLogger
 
 class Requests:
     class Message:    
@@ -31,7 +32,8 @@ class Server(socket.socket):
             block (bool, optional): Whether the server should run in a blocking manner. 
                                     Defaults to True.
         """
-        self.logger = logging.getLogger("Server")
+        self.logging = SameLogger()
+        self.logger = self.logging.getLogger("Server")
         
         self.logger.info("Starting server...")
         super().__init__(socket.AF_INET, socket.SOCK_STREAM)

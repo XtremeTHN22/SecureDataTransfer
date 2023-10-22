@@ -4,6 +4,11 @@ import os
 import traceback
 
 class DebugErrors:
+    class SameLog:
+        # Params variable is None in SameLogger class
+        class ParamsNotDefined(Exception):
+            def __init__(self, where):
+                super().__init__("Throwed in %s because params are not defined!" % where)
     class ArgumentsNotInitialized(Exception):
         pass
 

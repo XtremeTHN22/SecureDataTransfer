@@ -1,13 +1,14 @@
 import argparse
-import logging
 
 from modules.directories import ProjectDirs
 from modules.exceptions import DebugErrors
-from modules.log import delete_logs
+from modules.log import SameLogger
 
 class Arguments:
-    def __init__(self, console):
-        self.logger = logging.getLogger("Arguments()")
+    def __init__(self):
+        # SameLogger initialization
+        self.logging = SameLogger()
+        self.logger = self.logging.getLogger("Arguments()")
 
         self.logger.debug("Initializing argumentparser class...")
         self.parser = argparse.ArgumentParser()
@@ -29,10 +30,6 @@ class Arguments:
 
         self.parser.add_argument("--traceback", action="store_true", help="Displays traceback (Default: False)", default=False)
         
-        self.console = console
-
-        self.logger.debug("Parsing arguments...")
-
         self.args = None
     def apply_changes(self):
         if self.args is None:
@@ -42,11 +39,17 @@ class Arguments:
         dirs = ProjectDirs("SecureDataTransfer")
 
         self.logger.info("Applying arguments/configuration...")
+
         # Applies configs
         self.logger.debug("Changing log level to %s", self.args.log_level)
-        self.console.setLevel(self.args.log_level.upper())
+        
+        # Copying params and updating log level
+        new_params = SameLogger.params.copy()
+        new_params["log_level"] = self.args.log_level.upper()
+        self.logging.set_params(new_params)
+
         self.logger.debug("Checking if log have reached the file limit...")
-        delete_logs(self.args.max_logs, dirs.log_dir)
+        self.logging.delete_logs(self.args.max_logs)
 
     def parse_args(self):
         self.args = self.parser.parse_args()
