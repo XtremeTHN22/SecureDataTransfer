@@ -8,14 +8,9 @@ import os
 
 from modules.log import SameLogger
 
-class Requests:
-    class Message:    
-        STRING = "STRING"
-    class File:
-        class Client:
-            FILE = "FILE:Client:INIT"
-        class Server:
-            END="FILE:Server:END"
+from modules.log import SameLogger
+
+from modules.requests import Requests
 
 class Server(socket.socket):
     HEADER_TEMPLATE = {
@@ -43,6 +38,8 @@ class Server(socket.socket):
         self.logger.debug("Initializing SSL context...")
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(self.cert_file, self.key_file)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
         
         self.logger.debug("Wrapping socket with SSL...")
         self.sock = context.wrap_socket(self, server_side=True)
@@ -96,18 +93,19 @@ class Server(socket.socket):
             self.sock.listen()
             self.logger.info("Accepting connection...")
             client_socket, addr = self.sock.accept()
+            
             self.logger.info("User with address '%s' connected!", addr)
             self.logger.info("Creating thread for client...")    
-            threading.Thread(target=self.handle_client_thread, args=(client_socket,)).start()
+            threading.Thread(target=self.handle_client_thread, args=(client_socket,{"ip":addr})).start()
         
-    def formatCustomHeader(self, request_type, data):
+    def sendCustomHeader(self, request_type, data):
         self.logger.debug("Creating header...")
         header = self.HEADER_TEMPLATE.copy()
         header["request"] = request_type
         header["data"] = data
 
         self.logger.debug("Sending header...")
-        self.sock.sendall(header)
+        self.sock.sendall(json.dumps(header).encode())
     
     def handle_client(self, client_socket: socket.socket):
         """
@@ -122,13 +120,35 @@ class Server(socket.socket):
         request = json.loads(client_socket.recv(1024))
         if request["request"] == "STRING":
             print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
-            return
+            self.logger.info("Recieved: %s", request["data"])
+        elif request["request"] == Requests.File.Client.FILE:
+            self.logger.info("FILE request received!")
+            self.logger.info("Size: %s", request["data"])
+            self.logger.info("Creating file...")
+            path = input(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'INFO')}] File path: ")
+            self.logger.info("Path: %s", path)
+
+            # The root directory is saved into the n variable
+            if (n:=os.path.dirname(path)) != "":
+                os.makedirs(n, exist_ok=True)
+            
+            progress = tqdm.tqdm(total=int(request["data"]), unit="B", colour="#A6E3A1", unit_scale=True, unit_divisor=1024)
+            with open(path, "wb") as file:
+                while True:
+                    data = client_socket.recv(1024)
+                    if data == "END":
+                        break
+                    file.write(data)
+                    progress.update(len(data))
+            self.sendCustomHeader(Requests.File.Server.END, '')
+            progress.close()
+                
         
 
         client_socket.close()
         self.exit()
     
-    def handle_client_thread(self, client_socket: socket.socket):
+    def handle_client_thread(self, client_socket: socket.socket, client_data: dict):
         """
         Handle the client connection.
 
@@ -140,32 +160,35 @@ class Server(socket.socket):
         """
         
         while True:
-            request = json.loads(client_socket.recv(1024))
-            if request["request"] == "STRING":
-                print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
-                self.logger.info("Recieved: %s", request["data"])
-                continue
-            elif request["request"] == Requests.File.Client.FILE:
-                self.logger.info("FILE request received!")
-                self.logger.info("Size: %s", request["data"])
-                self.logger.info("Creating file...")
-                path = input(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'INFO')}] File path: ")
-                self.logger.info("Path: %s", path)
+            try:
+                request = json.loads(client_socket.recv(1024))
+                if request["request"] == "STRING":
+                    print(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'RECIEVED')}] {request['data']}")
+                    self.logger.info("Recieved: %s", request["data"])
+                    continue
+                elif request["request"] == Requests.File.Client.FILE:
+                    self.logger.info("FILE request received!")
+                    self.logger.info("Size: %s", request["data"])
+                    self.logger.info("Creating file...")
+                    path = input(f"[{pystyle.Colorate.Horizontal(pystyle.Colors.blue_to_red, 'INFO')}] File path: ")
+                    self.logger.info("Path: %s", path)
 
-                # The root directory is saved into the n variable
-                if (n:=os.path.dirname(path)) != "":
-                    os.makedirs(n, exist_ok=True)
-                
-                progress = tqdm.tqdm(total=int(request["data"]), unit="B", colour="#A6E3A1", unit_scale=True, unit_divisor=1024)
-                with open(path, "wb") as file:
-                    while True:
-                        data = client_socket.recv(1024)
-                        if data == "END":
-                            break
-                        file.write(data)
-                        progress.update(len(data))
-                self.formatCustomHeader(Requests.File.Server.END, '')
-                progress.close()
+                    # The root directory is saved into the n variable
+                    if (n:=os.path.dirname(path)) != "":
+                        os.makedirs(n, exist_ok=True)
+                    
+                    progress = tqdm.tqdm(total=int(request["data"]), unit="B", colour="#A6E3A1", unit_scale=True, unit_divisor=1024)
+                    with open(path, "wb") as file:
+                        while True:
+                            data = client_socket.recv(1024)
+                            if data == "END":
+                                break
+                            file.write(data)
+                            progress.update(len(data))
+                    self.sendCustomHeader(Requests.File.Server.END, '')
+                    progress.close()
+            except (ConnectionAbortedError, ConnectionResetError, ConnectionError):
+                self.logger.info("User with address '%s' disconnected!", client_data["ip"])
                 
         client_socket.close()
         self.exit()
