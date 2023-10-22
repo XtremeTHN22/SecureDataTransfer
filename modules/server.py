@@ -8,8 +8,6 @@ import os
 
 from modules.log import SameLogger
 
-from modules.log import SameLogger
-
 from modules.requests import Requests
 
 class Server(socket.socket):
